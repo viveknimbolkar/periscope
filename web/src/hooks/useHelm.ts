@@ -11,7 +11,7 @@
 // (5 minutes) — a tab that flips between values/manifest/history for
 // the same release pays one fetch.
 
-import { skipToken, useQuery } from "@tanstack/react-query";
+import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
 import type {
@@ -50,7 +50,7 @@ export function useHelmRelease(
     queryKey: queryKeys.cluster(cluster).helm.detail(namespace, name, revision),
     queryFn: enabled
       ? ({ signal }) =>
-          api.helmRelease(cluster, namespace, name, revision || undefined, signal)
+        api.helmRelease(cluster, namespace, name, revision || undefined, signal)
       : skipToken,
     staleTime: DETAIL_STALE_MS,
   });
@@ -82,5 +82,29 @@ export function useHelmDiff(
       ? ({ signal }) => api.helmDiff(cluster, namespace, name, fromRev, toRev, signal)
       : skipToken,
     staleTime: DETAIL_STALE_MS,
+  });
+}
+
+export function useRollbackHelmRelease(
+  cluster: string,
+  name: string,
+  namespace: string,
+  revision: number,
+) {
+  const queryClient = useQueryClient();
+  if (!Boolean(cluster && name && namespace && revision)) {
+    return useMutation({
+      mutationFn: () => Promise.reject(new Error("Invalid arguments"))
+    });
+  }
+  return useMutation({
+    mutationFn: () =>
+      api.helmRollback(cluster, namespace, name, revision),
+    onSuccess: () => {
+      // Invalidate the history query so the UI refreshes and shows the new rollback revision!
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.cluster(cluster).helm.history(namespace, name),
+      });
+    },
   });
 }

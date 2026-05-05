@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { useHelmHistory, useHelmRelease } from "../hooks/useHelm";
+import { useHelmHistory, useHelmRelease, useRollbackHelmRelease } from "../hooks/useHelm";
 import type { HelmHistoryEntry, HelmManifestObject } from "../lib/types";
 import { ageFrom } from "../lib/format";
 import { PageHeader } from "../components/page/PageHeader";
@@ -15,6 +15,8 @@ import { ErrorState, ForbiddenState, LoadingState } from "../components/table/st
 import { isForbidden } from "../components/table/isForbidden";
 import { MonacoYAML } from "../components/helm/MonacoYAML";
 import { cn } from "../lib/cn";
+
+import { RollbackModal } from "../components/helm/RollbackModal";
 
 type Tab = "values" | "manifest" | "history";
 
@@ -68,11 +70,9 @@ export function HelmReleasePage() {
     <div className="flex h-full min-h-0 flex-col">
       <PageHeader
         title={detail.name}
-        subtitle={`${detail.namespace} · ${detail.chartName}${
-          detail.chartVersion ? `-${detail.chartVersion}` : ""
-        } · r${detail.revision}${
-          detail.appVersion ? ` · app ${detail.appVersion}` : ""
-        }`}
+        subtitle={`${detail.namespace} · ${detail.chartName}${detail.chartVersion ? `-${detail.chartVersion}` : ""
+          } · r${detail.revision}${detail.appVersion ? ` · app ${detail.appVersion}` : ""
+          }`}
       />
       <div className="flex items-center gap-3 border-b border-border bg-bg/80 px-6 py-2 backdrop-blur-md">
         <ResourceSummary resources={detail.resources} />
@@ -171,6 +171,9 @@ function ResourceSummary({ resources }: { resources: HelmManifestObject[] }) {
 // row → "compare" button enables → diff route. Single-click on a row
 // navigates the page to that revision.
 function HistoryTab({
+  cluster,
+  namespace,
+  name,
   entries,
   currentRevision,
   isLoading,
@@ -191,6 +194,9 @@ function HistoryTab({
   onCompare: (from: number, to: number) => void;
 }) {
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [rollbackTarget, setRollbackTarget] = useState<number | null>(null);
+  const [rollbackModalOpen, setRollbackModalOpen] = useState(false);
+  const rollbackMutation = useRollbackHelmRelease(cluster, name, namespace, rollbackTarget);
 
   if (isLoading) return <LoadingState resource="history" />;
   if (isError) {
@@ -224,9 +230,23 @@ function HistoryTab({
     setSelected(next);
   };
 
+  const handleRollbackModalOpen = (revision: number) => {
+    setRollbackTarget(revision);
+    setRollbackModalOpen(true);
+  }
+
+  const handleRollbackModalClose = () => {
+    setRollbackTarget(null);
+    setRollbackModalOpen(false);
+  }
+
+  const handleRollbackModalConfirm = () => {
+    setRollbackModalOpen(false);
+    rollbackMutation.mutate();
+  }
+
   const compareEnabled = selected.size === 2;
   const sortedSel = Array.from(selected).sort((a, b) => a - b);
-
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-6 py-2">
@@ -293,6 +313,28 @@ function HistoryTab({
                   {e.updated ? ageFrom(e.updated) : "—"}
                 </span>
               </button>
+              <button
+                type="button"
+                disabled={!isCurrent}
+                onClick={() => handleRollbackModalOpen(e.revision)}
+                className={cn(
+                  "rounded-sm border border-border-strong px-2.5 py-1 font-mono text-[11.5px] transition-colors",
+                  "hover:bg-surface-2 hover:text-ink",
+                  "flex items-center gap-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
+                )}
+              >
+                Rollback
+              </button>
+              <RollbackModal
+                open={rollbackModalOpen}
+                onClose={handleRollbackModalClose}
+                onConfirm={handleRollbackModalConfirm}
+                releaseName={name}
+                namespace={namespace}
+                targetRevision={rollbackTarget}
+                cluster={cluster}
+                currentRevision={currentRevision}
+              />
             </div>
           );
         })}

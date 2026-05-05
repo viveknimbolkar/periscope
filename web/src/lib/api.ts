@@ -319,7 +319,7 @@ export const api = {
       { checks },
       signal,
     ),
-    
+
   /**
    * Audit log query. Filters serialize to URL query params; the backend
    * applies them server-side and clamps limit at 500.
@@ -817,6 +817,21 @@ export const api = {
       signal,
     );
   },
+
+  /** Helm release rollback */
+  helmRollback: (
+    cluster: string,
+    namespace: string,
+    releaseName: string,
+    revision: number,
+    signal?: AbortSignal,
+  ) => {
+    return postJSON<{ jobName: string }>(
+      `/api/clusters/${enc(cluster)}/helm/rollback`,
+      { namespace, releaseName, revision },
+      signal,
+    );
+  }
 };
 
 // --- write helpers (kept out of `api` block so the call sites stay readable) ---

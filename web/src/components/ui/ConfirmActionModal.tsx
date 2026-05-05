@@ -29,6 +29,7 @@ interface ConfirmActionModalProps {
   error?: string | null;
   onCancel: () => void;
   onConfirm: () => void;
+  size?: "sm" | "md" | "lg" | "xl" | string
 }
 
 const TITLE_ID = "confirm-action-title";
@@ -43,13 +44,14 @@ export function ConfirmActionModal({
   error = null,
   onCancel,
   onConfirm,
+  size = "sm",
 }: ConfirmActionModalProps) {
   return (
     <Modal
       open={open}
-      onClose={pending ? () => {} : onCancel}
+      onClose={pending ? () => { } : onCancel}
       labelledBy={TITLE_ID}
-      size="sm"
+      size={size}
       dismissOnEsc={!pending}
       dismissOnBackdrop={!pending}
     >

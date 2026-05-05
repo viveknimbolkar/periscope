@@ -24,7 +24,7 @@ interface ModalProps {
   onClose: () => void;
   /** Element id of the title node — wired to aria-labelledby. */
   labelledBy: string;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl" | string;
   z?: 50 | 60;
   dismissOnEsc?: boolean;
   dismissOnBackdrop?: boolean;

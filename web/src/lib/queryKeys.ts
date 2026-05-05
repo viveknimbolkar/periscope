@@ -88,6 +88,8 @@ export const queryKeys = {
         ["cluster", c, "helm", "history", ns, name] as const,
       diff: (ns: string, name: string, from: number, to: number) =>
         ["cluster", c, "helm", "diff", ns, name, from, to] as const,
+      rollback: (ns: string, name: string, revision: number) =>
+        ["cluster", c, "helm", "rollback", ns, name, revision] as const,
     },
 
     // Custom resources are addressed by GVR (no static registry), so
