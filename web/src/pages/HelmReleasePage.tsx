@@ -194,9 +194,9 @@ function HistoryTab({
   onCompare: (from: number, to: number) => void;
 }) {
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [rollbackTarget, setRollbackTarget] = useState<number | null>(null);
+  const [rollbackTarget, setRollbackTarget] = useState<number>();
   const [rollbackModalOpen, setRollbackModalOpen] = useState(false);
-  const rollbackMutation = useRollbackHelmRelease(cluster, name, namespace, rollbackTarget);
+  const rollbackMutation = useRollbackHelmRelease(cluster, name, namespace, rollbackTarget ?? 0);
 
   if (isLoading) return <LoadingState resource="history" />;
   if (isError) {
@@ -236,7 +236,7 @@ function HistoryTab({
   }
 
   const handleRollbackModalClose = () => {
-    setRollbackTarget(null);
+    setRollbackTarget(undefined);
     setRollbackModalOpen(false);
   }
 
@@ -325,20 +325,20 @@ function HistoryTab({
               >
                 Rollback
               </button>
-              <RollbackModal
-                open={rollbackModalOpen}
-                onClose={handleRollbackModalClose}
-                onConfirm={handleRollbackModalConfirm}
-                releaseName={name}
-                namespace={namespace}
-                targetRevision={rollbackTarget}
-                cluster={cluster}
-                currentRevision={currentRevision}
-              />
             </div>
           );
         })}
       </div>
+      <RollbackModal
+        open={rollbackModalOpen}
+        onClose={handleRollbackModalClose}
+        onConfirm={handleRollbackModalConfirm}
+        releaseName={name}
+        namespace={namespace}
+        targetRevision={rollbackTarget ?? 0}
+        cluster={cluster}
+        currentRevision={currentRevision}
+      />
     </div>
   );
 }
