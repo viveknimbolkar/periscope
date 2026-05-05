@@ -92,16 +92,15 @@ export function useRollbackHelmRelease(
   revision: number,
 ) {
   const queryClient = useQueryClient();
-  if (!Boolean(cluster && name && namespace && revision)) {
-    return useMutation({
-      mutationFn: () => Promise.reject(new Error("Invalid arguments"))
-    });
-  }
+
   return useMutation({
-    mutationFn: () =>
-      api.helmRollback(cluster, namespace, name, revision),
+    mutationFn: () => {
+      if (!cluster || !name || !namespace || revision === null) {
+        return Promise.reject(new Error("Invalid arguments"));
+      }
+      return api.helmRollback(cluster, namespace, name, revision);
+    },
     onSuccess: () => {
-      // Invalidate the history query so the UI refreshes and shows the new rollback revision!
       queryClient.invalidateQueries({
         queryKey: queryKeys.cluster(cluster).helm.history(namespace, name),
       });
