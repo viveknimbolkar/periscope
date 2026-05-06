@@ -24,6 +24,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -31,6 +32,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/gnana997/periscope/internal/audit"
 	"github.com/gnana997/periscope/internal/clusters"
 	"github.com/gnana997/periscope/internal/credentials"
 	"github.com/gnana997/periscope/internal/k8s"
@@ -239,4 +241,59 @@ func parseRevisionParam(s string) (int, error) {
 		return 0, errors.New("revision must be a non-negative integer")
 	}
 	return n, nil
+}
+
+type HelmRollbackRequest struct {
+	Namespace   string `json:"namespace"`
+	ReleaseName string `json:"releaseName"`
+	Revision    int    `json:"revision"`
+}
+
+// helmRollbackHandler processes POST /api/clusters/{cluster}/helm/rollback.
+func helmRollbackHandler(reg *clusters.Registry, auditer *audit.Emitter) credentials.Handler {
+	return func(w http.ResponseWriter, r *http.Request, p credentials.Provider) {
+		c, ok := reg.ByName(chi.URLParam(r, "cluster"))
+		if !ok {
+			http.Error(w, "cluster not found", http.StatusNotFound)
+			return
+		}
+
+		var req HelmRollbackRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		if req.Namespace == "" || req.ReleaseName == "" || req.Revision <= 0 {
+			http.Error(w, "missing namespace, releaseName, or valid revision", http.StatusBadRequest)
+			return
+		}
+
+		evt := audit.Event{
+			Actor:   actorFromContext(r.Context()),
+			Verb:    audit.VerbHelmRollback,
+			Outcome: audit.OutcomeSuccess,
+			Cluster: c.Name,
+			Resource: audit.ResourceRef{
+				Namespace: req.Namespace,
+				Name:      req.ReleaseName,
+			},
+			Extra: map[string]any{
+				"revision": req.Revision,
+			},
+		}
+
+		if err := k8s.RollbackHelmRelease(r.Context(), p, c, req.Namespace, req.ReleaseName, req.Revision); err != nil {
+			evt.Outcome = audit.OutcomeFailure
+			evt.Reason = err.Error()
+			auditer.Record(r.Context(), evt)
+
+			slog.Warn("helm rollback failed",
+				"cluster", c.Name, "namespace", req.Namespace, "name", req.ReleaseName, "revision", req.Revision, "err", err)
+			writeAPIError(w, err, httpStatusFor(err))
+			return
+		}
+
+		auditer.Record(r.Context(), evt)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
 }

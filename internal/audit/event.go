@@ -46,7 +46,10 @@ const (
 	// VerbLogOpen is reserved for pod/workload log stream opens. No
 	// emission site exists yet; declared so the taxonomy is visible
 	// and a follow-up PR can wire it without revisiting this file.
-	VerbLogOpen Verb = "log_open"
+	VerbLogOpen      Verb = "log_open"
+	VerbHelmInstall  Verb = "helm.install"
+	VerbHelmUpgrade  Verb = "helm.upgrade"
+	VerbHelmRollback Verb = "helm.rollback"
 )
 
 // Outcome is the result classification.

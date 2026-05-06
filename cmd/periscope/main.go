@@ -258,6 +258,8 @@ func main() {
 		helmHistoryHandler(registry)))
 	router.Get("/api/clusters/{cluster}/helm/releases/{ns}/{name}/diff", credentials.Wrap(factory,
 		helmDiffHandler(registry)))
+	router.Post("/api/clusters/{cluster}/helm/rollback", credentials.Wrap(factory,
+		helmRollbackHandler(registry, auditEmitter)))
 
 	// --- Overview / dashboard ---
 
