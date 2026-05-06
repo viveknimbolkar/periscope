@@ -78,6 +78,9 @@ import type {
   HelmReleaseDetail,
   HelmHistoryResponse,
   HelmDiffResponse,
+  RevisionHistory,
+  RollbackRequest,
+  RollbackResponse,
   UpgradeInsightsListResponse,
   UpgradeInsightDetail,
   NodegroupsListResponse,
@@ -826,6 +829,37 @@ export const api = {
     );
   },
 
+  /**
+   * Workload rollback (#71). Two endpoints, called from the
+   * RollbackDialog: GET history (revision picker) and POST rollback
+   * (the patch). Both are kind-gated server-side — supplying an
+   * unsupported kind returns 400.
+   */
+  revisions: (
+    cluster: string,
+    kind: RollbackableKind,
+    namespace: string,
+    name: string,
+    signal?: AbortSignal,
+  ) =>
+    getJSON<RevisionHistory>(
+      `/api/clusters/${enc(cluster)}/${enc(kind)}/${enc(namespace)}/${enc(name)}/revisions`,
+      signal,
+    ),
+
+  rollback: (
+    cluster: string,
+    kind: RollbackableKind,
+    namespace: string,
+    name: string,
+    body: RollbackRequest,
+    signal?: AbortSignal,
+  ) =>
+    postJSON<RollbackResponse>(
+      `/api/clusters/${enc(cluster)}/${enc(kind)}/${enc(namespace)}/${enc(name)}/rollback`,
+      body,
+      signal,
+    ),
   // --- EKS Upgrade Insights (read-only, issue #103) ---------------
   //
   // Both endpoints 422 with `E_BACKEND_NOT_EKS` for non-EKS clusters.
@@ -863,6 +897,18 @@ export const api = {
     ),
 };
 
+/** Workload kinds that have apiserver-native rollout history. */
+export type RollbackableKind = "deployments" | "statefulsets" | "daemonsets";
+
+export const ROLLBACKABLE_KINDS: RollbackableKind[] = [
+  "deployments",
+  "statefulsets",
+  "daemonsets",
+];
+
+export function isRollbackable(kind: string): kind is RollbackableKind {
+  return (ROLLBACKABLE_KINDS as string[]).includes(kind);
+}
 /** True when an ApiError is the structured 422/E_BACKEND_NOT_EKS
  *  response from one of the EKS-only surfaces. Lets callers render
  *  a clear empty state rather than a generic error. */
